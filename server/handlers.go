@@ -1,17 +1,20 @@
 package server
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path"
+	"text/template"
+
+	"github.com/gorilla/mux"
 )
 
 var homedir string = GetCWD()
 var indexPage string = "index.html"
 
 func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	fn := path.Join(homedir, "files", indexPage)
-	body, err := ioutil.ReadFile(fn)
+	body, err := ioutil.ReadFile(TemplatePath("index.html"))
 	if err != nil {
 		panic(err)
 	}
@@ -19,5 +22,50 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DirHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("This is my dir handler"))
+	vars := mux.Vars(r)
+	type Person struct {
+		Name string
+	}
+	p := Person{Name: vars["name"]}
+	tmpl, err := template.New("dir.html").ParseFiles(TemplatePath("dir.html"))
+	if err != nil {
+		panic(err)
+	}
+	err = tmpl.Execute(w, p)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func ShowFilesHandler(w http.ResponseWriter, r *http.Request) {
+	//Check for mux variables
+	vars := mux.Vars(r)
+
+	// structs for template
+	type S struct {
+		Files []string
+	}
+	baseDir := "/home/jw/"
+	useDir := baseDir
+	if vars["path"] != "" {
+		useDir = path.Join(baseDir, vars["path"])
+	}
+
+	contents, err := ioutil.ReadDir(useDir)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(contents[0].Name())
+	OutputStruct := S{Files: PackFiles(contents)}
+
+	tmpl, err := template.New("files.html").ParseFiles(TemplatePath("files.html"))
+	if err != nil {
+		panic(err)
+	}
+
+	err = tmpl.Execute(w, OutputStruct)
+	if err != nil {
+		panic(err)
+	}
 }
